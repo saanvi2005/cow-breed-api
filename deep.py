@@ -1,10 +1,20 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import os
 
 app = FastAPI()
+
+# ✅ Enable CORS (IMPORTANT)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow requests from any frontend (Change "*" to specific domain later)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 def generate_tts(text, language):
     filename = "output.mp3"
@@ -70,10 +80,12 @@ def text_to_speech(data: QueryRequest):
     language = data.language.lower()
     
     audio_file = generate_tts(text, language)
-    return {"audio_url": audio_file}
+    
+    # ✅ Return full URL for frontend access
+    base_url = "https://cow-breed-api.onrender.com"
+    return {"audio_url": f"{base_url}/{audio_file}"}
 
 import uvicorn
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=10000, reload=True)
-
