@@ -7,13 +7,13 @@ import os
 
 app = FastAPI()
 
-# ✅ Enable CORS (IMPORTANT)
+# ✅ Enable CORS (Fix frontend issues)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow requests from any frontend (Change "*" to specific domain later)
+    allow_origins=["*"],  
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],  
+    allow_headers=["*"],  
 )
 
 def generate_tts(text, language):
@@ -22,7 +22,7 @@ def generate_tts(text, language):
     tts.save(filename)
     return filename
 
-# Expanded cow breed data
+# ✅ Expanded cow breed data
 cow_data = {
     "gir": {"origin": "Gujarat", "milk_yield": "10-15 liters per day", "features": "It has a high milk yield and is resistant to heat."},
     "sahiwal": {"origin": "Punjab", "milk_yield": "8-12 liters per day", "features": "This breed is known for its drought resistance and disease resistance."},
@@ -39,7 +39,14 @@ class QueryRequest(BaseModel):
 def ask_question(data: QueryRequest):
     question = data.question.lower()
     language = data.language.lower()
-    
+
+    # ✅ Detect comparison questions
+    comparison_keywords = ["compare", "difference between", "vs", "versus"]
+    breeds_mentioned = [breed for breed in cow_data.keys() if breed in question]
+
+    if any(keyword in question for keyword in comparison_keywords) or len(breeds_mentioned) > 1:
+        return compare_cows(data)  # ✅ Call compare function if it's a comparison question
+
     answer = None
     for breed, details in cow_data.items():
         if breed in question:
@@ -47,7 +54,7 @@ def ask_question(data: QueryRequest):
                       f"It produces around {details['milk_yield']}. "
                       f"{details['features']}")
             break
-    
+
     if not answer:
         return {"response": "Sorry, I don't have information on that breed."}
     
@@ -58,30 +65,29 @@ def ask_question(data: QueryRequest):
 def compare_cows(data: QueryRequest):
     question = data.question.lower()
     language = data.language.lower()
-    
+
     breeds = [breed for breed in cow_data.keys() if breed in question]
     
     if len(breeds) < 2:
         return {"response": "Please mention at least two breeds for comparison."}
-    
+
     comparison_result = "Here's a comparison of the mentioned breeds:\n\n"
     for breed in breeds:
         details = cow_data[breed]
         comparison_result += (f"The {breed.capitalize()} breed originates from {details['origin']}. "
                               f"It produces around {details['milk_yield']}. "
                               f"{details['features']}\n\n")
-    
+
     translated_answer = GoogleTranslator(source='auto', target=language).translate(comparison_result)
     return {"response": translated_answer}
 
 @app.post("/text-to-speech")
 def text_to_speech(data: QueryRequest):
-    text = data.question  # Using question field for TTS
+    text = data.question  
     language = data.language.lower()
     
     audio_file = generate_tts(text, language)
     
-    # ✅ Return full URL for frontend access
     base_url = "https://cow-breed-api.onrender.com"
     return {"audio_url": f"{base_url}/{audio_file}"}
 
