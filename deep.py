@@ -57,8 +57,13 @@ def ask_question(data: QueryRequest):
 
     if not answer:
         return {"response": "Sorry, I don't have information on that breed."}
-    
-    translated_answer = GoogleTranslator(source='auto', target=language).translate(answer)
+
+    # ✅ Properly handle translation errors
+    try:
+        translated_answer = GoogleTranslator(source='en', target=language).translate(answer)
+    except Exception as e:
+        translated_answer = answer  # Fallback to English
+
     return {"response": translated_answer}
 
 @app.post("/compare")
@@ -67,7 +72,7 @@ def compare_cows(data: QueryRequest):
     language = data.language.lower()
 
     breeds = [breed for breed in cow_data.keys() if breed in question]
-    
+
     if len(breeds) < 2:
         return {"response": "Please mention at least two breeds for comparison."}
 
@@ -78,7 +83,12 @@ def compare_cows(data: QueryRequest):
                               f"It produces around {details['milk_yield']}. "
                               f"{details['features']}\n\n")
 
-    translated_answer = GoogleTranslator(source='auto', target=language).translate(comparison_result)
+    # ✅ Properly handle translation errors
+    try:
+        translated_answer = GoogleTranslator(source='en', target=language).translate(comparison_result)
+    except Exception as e:
+        translated_answer = comparison_result  # Fallback to English
+
     return {"response": translated_answer}
 
 @app.post("/text-to-speech")
@@ -95,3 +105,4 @@ import uvicorn
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=10000, reload=True)
+
