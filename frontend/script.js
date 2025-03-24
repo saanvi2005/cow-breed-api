@@ -1,7 +1,6 @@
 async function askQuestion() {
     const question = document.getElementById("question").value;
     const language = document.getElementById("language").value;
-    const language = document.getElementById("language").value;
     const chatBox = document.getElementById("chat-box");
 
     if (!question) {
@@ -24,8 +23,6 @@ async function askQuestion() {
     try {
         const response = await fetch("https://cow-breed-api.onrender.com/ask", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question, language })
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question, language })
         });
