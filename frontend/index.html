@@ -9,7 +9,10 @@
 <body>
     <div class="chat-container">
         <div class="chat-box" id="chat-box">
-            <div class="chat-message bot">Hello! Ask me about cow breeds 🐄</div>
+            <div class="chat-message bot">
+                Hello! Ask me about cow breeds 🐄
+                <button class="audio-btn" onclick="playAudio('Hello! Ask me about cow breeds')">🔉</button>
+            </div>
         </div>
         <div class="chat-input-container">
             <input type="text" id="question" placeholder="Type your question..." />
@@ -18,6 +21,7 @@
                 <option value="hi">Hindi</option>
             </select>
             <button onclick="askQuestion()">Send</button>
+            <button id="speech-btn">🎤</button> <!-- Speech-to-text button -->
         </div>
     </div>
 
