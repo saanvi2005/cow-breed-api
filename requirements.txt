@@ -38,6 +38,7 @@ pydantic==2.10.6
 pydantic_core==2.27.2
 pyswisseph==2.10.3.2
 python-multipart==0.0.20
+pydub
 pytz==2025.1
 PyYAML==6.0.2
 regex==2024.11.6
