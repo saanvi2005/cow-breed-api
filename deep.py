@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from deep_translator import GoogleTranslator
 from gtts import gTTS
@@ -9,7 +10,7 @@ from pydub import AudioSegment
 
 app = FastAPI()
 
-# ✅ Enable CORS (Fix frontend issues)
+# ✅ Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
@@ -18,13 +19,23 @@ app.add_middleware(
     allow_headers=["*"],  
 )
 
+# ✅ Ensure audio directory exists
+AUDIO_DIR = "audio"
+os.makedirs(AUDIO_DIR, exist_ok=True)
+
+# ✅ Serve static files for TTS audio
+app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
+
 AUDIO_DIR = "audio"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
 def generate_tts(text, language):
     filename = f"output_{hash(text)}.mp3"
     filepath = os.path.join(AUDIO_DIR, filename)
+    filename = f"output_{hash(text)}.mp3"
+    filepath = os.path.join(AUDIO_DIR, filename)
     tts = gTTS(text=text, lang=language)
+    tts.save(filepath)
     tts.save(filepath)
     return filename
 
@@ -106,12 +117,10 @@ def ask_question(data: QueryRequest):
     question = data.question.lower()
     language = data.language.lower()
 
-    # ✅ Detect comparison questions
-    comparison_keywords = ["compare", "difference between", "vs", "versus"]
     breeds_mentioned = [breed for breed in cow_data.keys() if breed in question]
 
-    if any(keyword in question for keyword in comparison_keywords) or len(breeds_mentioned) > 1:
-        return compare_cows(data)  # ✅ Call compare function if it's a comparison question
+    if len(breeds_mentioned) > 1:
+        return compare_cows(data)
 
     answer = None
     for breed, details in cow_data.items():
@@ -122,15 +131,17 @@ def ask_question(data: QueryRequest):
             break
 
     if not answer:
-        return {"response": "Sorry, I don't have information on that breed."}
+        answer = "Sorry, I don't have information on that breed."
 
-    # ✅ Properly handle translation errors
     try:
         translated_answer = GoogleTranslator(source='en', target=language).translate(answer)
-    except Exception as e:
-        translated_answer = answer  # Fallback to English
+    except Exception:
+        translated_answer = answer
 
-    return {"response": translated_answer}
+    audio_file = generate_tts(translated_answer, language)
+    base_url = "https://cow-breed-api.onrender.com"
+
+    return {"response": translated_answer, "audio_url": f"{base_url}/audio/{audio_file}"}
 
 @app.post("/compare")
 def compare_cows(data: QueryRequest):
@@ -149,26 +160,44 @@ def compare_cows(data: QueryRequest):
                               f"It produces around {details['milk_yield']}. "
                               f"{details['features']}\n\n")
 
-    # ✅ Properly handle translation errors
     try:
         translated_answer = GoogleTranslator(source='en', target=language).translate(comparison_result)
-    except Exception as e:
-        translated_answer = comparison_result  # Fallback to English
+    except Exception:
+        translated_answer = comparison_result
 
-    return {"response": translated_answer}
-
-@app.post("/text-to-speech")
-def text_to_speech(data: QueryRequest):
-    text = data.question  
-    language = data.language.lower()
-    
-    audio_file = generate_tts(text, language)
-    
+    audio_file = generate_tts(translated_answer, language)
     base_url = "https://cow-breed-api.onrender.com"
-    return {"audio_url": f"{base_url}/{audio_file}"}
+
+    return {"response": translated_answer, "audio_url": f"{base_url}/audio/{audio_file}"}
+
+@app.post("/speech-to-text")
+async def speech_to_text(file: UploadFile = File(...), language: str = "en"):
+    try:
+        temp_audio_path = f"temp_{file.filename}"
+        with open(temp_audio_path, "wb") as f:
+            f.write(file.file.read())
+
+        audio = AudioSegment.from_file(temp_audio_path)
+        wav_path = temp_audio_path.replace(".mp3", ".wav")
+        audio.export(wav_path, format="wav")
+
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(wav_path) as source:
+            audio_data = recognizer.record(source)
+
+        # Set language for recognition
+        lang_code = "hi-IN" if language.lower() == "hi" else "en-US"
+        text = recognizer.recognize_google(audio_data, language=lang_code)
+
+        os.remove(temp_audio_path)
+        os.remove(wav_path)
+
+        return {"transcription": text}
+    except Exception as e:
+        return {"error": f"Speech recognition failed: {str(e)}"}
+
 
 import uvicorn
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=10000, reload=True)
-
